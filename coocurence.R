@@ -88,6 +88,6 @@ colnames(coocMatrix)=dictNames[featureVector]
 rownames(coocMatrix)=dictNames
 
 # ---- zapisanie macierzy współwystąpień do pliku ----
-write.csv(coocMatrix,paste(fileName,".cooc.csv"))
+write.csv(coocMatrix,paste(fileName, ".cooc.csv", sep=""))
 
 
