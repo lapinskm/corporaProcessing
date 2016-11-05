@@ -1,35 +1,42 @@
 #!/usr/bin/env Rscript
 
-# ---- wyczyszczenie work-space-a ----
-remove(list = ls())
-
 # ---- wczytanie niezbędnych pakietów ----
 if (!(any(installed.packages()[ , "Package"]=="zoo"))){
   install.packages("zoo")
 }
-library(zoo) #rollapply
+suppressPackageStartupMessages(library(zoo)) #rollapply
 
 if (!(any(installed.packages()[ , "Package"]=="tokenizers"))){
   install.packages("tokenizers")
 }
-library(tokenizers)
+suppressPackageStartupMessages(library(tokenizers))
+
+if (!(any(installed.packages()[ , "Package"]=="optparse"))){
+  install.packages("optparse")
+}
+suppressPackageStartupMessages( library(optparse) )
 
 # ---- obsługa argumentów ----
-args = commandArgs(trailingOnly=TRUE)
+option_list <- list(
+  make_option(c("-o", "--output"),
+              default=format(Sys.time(), "cooc.out.csv"),
+              help="Specify output csv file name [default is is cooc.out.csv]")
+)
+usage <- "%prog [options] INPUT_FILE.txt"
+opt <- parse_args(OptionParser(option_list = option_list,
+                               usage = usage),
+                  positional_arguments = TRUE,
+                  print_help_and_exit = TRUE)
 
-if ( length(args) <= 0 ) {
-  #domyślna wartość
-  fileName <- "const.txt"
-  setwd(getSrcDirectory(function(x) {x}))
-  getSrcDirectory(function(x) {x})
-} else {
-  fileName <- args[1]
-}
+inputFile <- opt$args
+outFileName <- unlist(opt$o)[1]
+stopifnot( length(inputFile) == 1 )
 
 # ---- Odczyt pliku ----
-fileContent <- readChar(fileName, file.info(fileName)$size)
+fileContent <- readChar(inputFile, file.info(inputFile)$size)
 
-words <- unlist(tokenize_words(fileContent,lowercase = TRUE))
+words <- unlist(tokenize_words(fileContent,
+                               lowercase = TRUE))
 #remove numbers
 words <- words[! grepl("\\d", words)]
 
@@ -46,13 +53,16 @@ sampledTokenIndex <- leftWindow+1;
 
 # ---- stworzenie słownika z mapowaniem słów na identyfikatory ----
 # trochę magii optymalizacyjnej-robimy macierz na liczbach zamiast słów - będzie lżej zarówno dla pamięci jak i procesora.
-dictNames <- names(sort(table(words),decreasing=TRUE))# zrobienie listy słów występującej korpusie - posortowana wg popularności
+dictNames <- names(sort(table(words),
+                        decreasing=TRUE))# zrobienie listy słów występującej korpusie - posortowana wg popularności
 dictSize <- length(dictNames)
 dictIds <- 1 : dictSize # zrobienie listy id-ków
 
 # ---- mapowanie słów na identyfikatory liczbowe w tekscie ----
 names(dictIds) <- dictNames #magiczny myk- zrobienie mapowania id-słowo
-mappedWords <- c(rep(NA,floor(leftWindow)), dictIds[words],rep(NA,floor(rightWindow))) # zamiana słów na zmapowane numery
+mappedWords <- c(rep(NA,floor(leftWindow)),
+                 dictIds[words],
+                 rep(NA,floor(rightWindow))) # zamiana słów na zmapowane numery
 
 # ---- najpopularniejsze słowa z którymi będzie mierzone współwystępowanie ----
 featureVector <- 1 : featureVectorSize; #współwystępowanie z tymi słowami będzie naszym wekorem cech
@@ -73,21 +83,26 @@ processPair <- function(pair, modEnv) # funkcja inkrementująca macierz współw
 
 processWindow <- function(window, modEnv) # funkcja zliczająca pary współwystąpień dla okna
 {
-  sampledToken=window[modEnv$sampledTokenIndex]
+  sampledToken <- window[modEnv$sampledTokenIndex]
   window <- window[window %in%  modEnv$featureVector] #liczymy współwystąpienia tylko ze słowami z wektora cech
-  pairs <- matrix( c(rep(sampledToken,length(window)),window),nrow = length(window), ncol=2 )
+  pairs <- matrix( c(rep(sampledToken,length(window)),window),
+                   nrow = length(window), ncol=2 )
   apply(pairs,  FUN=modEnv$processPair, MARGIN = 1, modEnv = modEnv)
   NULL
 }
 
-rollapply(mappedWords, windowSize,FUN=processWindow, modEnv=globalenv()) # przetworzenie danych podzielonych na okna
+# przetworzenie danych podzielonych na okna
+invisible(rollapply(mappedWords,
+                    windowSize,
+                    FUN = processWindow,
+                    modEnv=globalenv()))
 
 # ---- opisanie kolumn i rzędów ---- 
 # wiersze odpowiadają wektorom współwystąpień
-colnames(coocMatrix)=dictNames[featureVector]
-rownames(coocMatrix)=dictNames
+colnames(coocMatrix) <- dictNames[featureVector]
+rownames(coocMatrix) <- dictNames
 
 # ---- zapisanie macierzy współwystąpień do pliku ----
-write.csv(coocMatrix,paste(fileName, ".cooc.csv", sep=""))
+write.csv(coocMatrix, outFileName)
 
 
