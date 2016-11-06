@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
 
 # ---- wczytanie pakietów ----
-if (!(any(installed.packages()[ , "Package"]=="optparse"))){
-  install.packages("optparse")
+if (!(any(installed.packages()[ , "Package"]=="optparse"))) {
+   install.packages("optparse")
 }
 suppressPackageStartupMessages( library(optparse) )
 
@@ -23,25 +23,58 @@ fileNames <- opt$args
 outFileName <- unlist(opt$o)[1]
 stopifnot( length(fileNames) > 0 )
 
-# ---- wczytanie i processowanie plików  ----
-cumulatedMatirx=matrix(nrow = 0, ncol = 0);
+
+# ---- wczytanie nazw kolumn i rzędów z plików ----
+
+unionColNames <- unionRowNames <- vector(length = 0)
+
+for(fileName in fileNames) {
+  csvContent <- read.csv(fileName, sep=",", row.names=1)
+  subMatrix <- as.matrix(csvContent)
+  unionRowNames <-union( unionRowNames, rownames(subMatrix))
+  unionColNames <-union(unionColNames, colnames(subMatrix))
+}
+
+unionRows <-1:length(unionRowNames)
+names(unionRows) <- unionRowNames
+
+unionCols <- 1:length(unionColNames)
+names (unionCols) <- unionColNames
+
+# ---- pomowne wczytanie i processowanie danych  ----
+
+unionMatrix <- matrix(data = 0,
+                      ncol = length(unionColNames),
+                      nrow = length(unionRowNames),
+                      dimnames = list(unionRowNames, unionColNames))
+
+sumValues <- function(idxPair, modEnv){
+  newDataX <- idxPair[1];
+  newDataY <- idxPair[2];
+  UnionDataX<- newDataColsToUnionMap[newDataX];
+  UnionDataY<- newDataColsToUnionMap[newDataY];
+  modEnv$unionMatrix[UnionDataX, UnionDataY] <- modEnv$unionMatrix[UnionDataX, UnionDataY] +  modEnv$newData[newDataX, newDataY]
+  eval(modEnv)
+}
+
 for(fileName in fileNames) {
    csvContent <- read.csv(fileName, sep=",", row.names=1)
-   subMatrix <- as.matrix(csvContent)
+   newData <- as.matrix(csvContent)
    
-   collumnSpan <- union(colnames(subMatrix), colnames(cumulatedMatirx))
-   rowSpan <- union(rownames(subMatrix), rownames(cumulatedMatirx))
+   newDataColsToUnionMap <- unionCols[colnames(newData)]
+   names(newDataColsToUnionMap)=NULL
+   newDataColNames <- colnames(newData);
+   newDataCols <- 1:length(newDataColNames);
    
-   temp1 <- temp2 <- matrix(0, ncol=length(collumnSpan), nrow=length(rowSpan), dimnames=list(rowSpan, collumnSpan))
+   newDataRowsToUnionMap <- unionRows[rownames(newData)]
+   names(newDataRowsToUnionMap)=NULL 
+   newDataRowNames <- rownames(newData);
+   newDataRows <- 1:length(newDataRowNames);
    
-   cumuIndx <- outer(rowSpan, collumnSpan, FUN=paste) %in% outer(rownames(cumulatedMatirx), colnames(cumulatedMatirx), FUN=paste) 
-   submIndx <- outer(rowSpan, collumnSpan, FUN=paste) %in% outer(rownames(subMatrix), colnames(subMatrix), FUN=paste)
-   temp1[cumuIndx] <- cumulatedMatirx
-   temp2[submIndx] <- subMatrix
+   idxs=expand.grid(newDataCols, newDataRows)
    
-   cumulatedMatirx <- temp1 + temp2
+   apply(idxs, FUN = sumValues ,MARGIN =1,modEnv=globalenv())
 }
 
 # ---- zapisanie macierzy do pliku. ----
-
-write.csv(cumulatedMatirx, outFileName)
+write.csv(unionMatrix, outFileName)
