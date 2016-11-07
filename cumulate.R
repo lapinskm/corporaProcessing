@@ -6,6 +6,8 @@ if (!(any(installed.packages()[ , "Package"]=="optparse"))) {
 }
 suppressPackageStartupMessages( library(optparse) )
 
+suppressPackageStartupMessages( library(Matrix) )
+
 # ---- obsługa argumentów ----
 
 option_list <- list(
@@ -43,10 +45,11 @@ names (unionCols) <- unionColNames
 
 # ---- pomowne wczytanie i processowanie danych  ----
 
-unionMatrix <- matrix(data = 0,
+unionMatrix <- Matrix(data = 0,
                       ncol = length(unionColNames),
                       nrow = length(unionRowNames),
-                      dimnames = list(unionRowNames, unionColNames))
+                      dimnames = list(unionRowNames, unionColNames),
+                      sparse = TRUE)
 
 sumValues <- function(idxPair, modEnv){
   newDataCol <- idxPair[1];
@@ -77,4 +80,4 @@ for(fileName in fileNames) {
 }
 
 # ---- zapisanie macierzy do pliku. ----
-write.csv(unionMatrix, outFileName)
+write.csv(as.matrix(unionMatrix), outFileName)
