@@ -49,12 +49,12 @@ unionMatrix <- matrix(data = 0,
                       dimnames = list(unionRowNames, unionColNames))
 
 sumValues <- function(idxPair, modEnv){
-  newDataX <- idxPair[1];
-  newDataY <- idxPair[2];
-  UnionDataX<- newDataColsToUnionMap[newDataX];
-  UnionDataY<- newDataColsToUnionMap[newDataY];
-  modEnv$unionMatrix[UnionDataX, UnionDataY] <- modEnv$unionMatrix[UnionDataX, UnionDataY] +  modEnv$newData[newDataX, newDataY]
-  eval(modEnv)
+  newDataCol <- idxPair[1];
+  newDataRow <- idxPair[2];
+  unionDataCol<- newDataColsToUnionMap[newDataCol];
+  unionDataRow<- newDataRowsToUnionMap[newDataRow];
+  modEnv$unionMatrix[unionDataRow, unionDataCol] <- modEnv$unionMatrix[unionDataRow, unionDataCol] +  modEnv$newData[newDataRow, newDataCol];
+  eval(modEnv);
 }
 
 for(fileName in fileNames) {
