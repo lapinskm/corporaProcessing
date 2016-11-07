@@ -18,18 +18,26 @@ suppressPackageStartupMessages( library(optparse) )
 
 # ---- obsługa argumentów ----
 option_list <- list(
-  make_option(c("-o", "--output"),
-              default=format(Sys.time(), "cooc.out.csv"),
-              help="Specify output csv file name [default is is cooc.out.csv]")
-)
+  make_option(c("-o", "--output"), default = "",
+              help="Specify output file name [default is is cooc.out.{csv|rds}]"),
+  make_option(c("-b" ,"--bin"),action = "store_true", default=FALSE,
+              help="Save result as binary file (.rds) [default is disabled]")
+  )
 usage <- "%prog [options] INPUT_FILE.txt"
 opt <- parse_args(OptionParser(option_list = option_list,
                                usage = usage),
                   positional_arguments = TRUE,
                   print_help_and_exit = TRUE)
 
+if (opt$options$o != "") {
+  outFileName <- opt$options$o
+} else if (opt$options$b) {
+  outFileName <- "cooc.out.rds"
+} else {
+  outFileName <- "cooc.out.csv"
+}
+
 inputFile <- opt$args
-outFileName <- unlist(opt$o)[1]
 stopifnot( length(inputFile) == 1 )
 
 # ---- Odczyt pliku ----
@@ -103,6 +111,9 @@ colnames(coocMatrix) <- dictNames[featureVector]
 rownames(coocMatrix) <- dictNames
 
 # ---- zapisanie macierzy współwystąpień do pliku ----
-write.csv(coocMatrix, outFileName)
-
+if (opt$options$b) {
+  saveRDS(coocMatrix, outFileName)
+} else {
+  write.csv(coocMatrix, outFileName)
+}
 
